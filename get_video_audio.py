@@ -33,17 +33,26 @@ for lin in lines:
 
 	with youtube_dl.YoutubeDL(ydl_opts) as ydl:
 		ydl.download(['https://www.youtube.com/watch?v=' + words[0]])
-		info = ydl.extract_info(str('https://www.youtube.com/watch?v=' + words[0]), download=False)
-		ext = info.get('ext',None)
+		
+		info = ydl.extract_info(str('https://www.youtube.com/watch?v=' + words[0]), download=False) # Extract Info without download
+		ext = info.get('ext',None) # Extract the extension of the downloaded video
+		
 		ps = subprocess.Popen(('ls', '-1tc'), stdout=subprocess.PIPE)
 		output = subprocess.check_output(('head', '-n1'), stdin=ps.stdout)
 		ps.wait()
 		# print(output)
 		# terminal.call(["ls","-t","|","head","-n1"])
-		print("00:00:"+str(int(float(words[1]))))
 		subprocess.call(["ffmpeg","-ss",str(int(float(words[1]))),"-i","video_"+str(counter)+"."+ext,"-t","00:00:10","-vcodec","copy","-acodec","copy","new_video_"+str(counter)+"."+ext])
+
+		# Video to Audio Conversion 
+		# -i is for input file
+		# -ab is bit rate
+		# -ac is no of channels
+		# -ar is sample rate
+		# -vn is no video
+		audio_file_path = "audio_"+ str(counter) +".wav"
+		command = "ffmpeg -i " + "new_video_"+ str(counter) + "."+ext+" -ab 160k -ac 1 -ar 44100 -vn "+audio_file_path
+		subprocess.call(command, shell=True)
 		counter = counter + 1
-		# ffmpeg -i new_video_1.mp4 -ab 160k -ac 2 -ar 44100 -vn audio.wav
-		# print("File name is "+title)
 
 	print("Im Done")
