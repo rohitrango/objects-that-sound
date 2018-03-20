@@ -50,8 +50,8 @@ def download_vid(lin,count):
 		# -ar is sample rate
 		# -vn is no video
 		audio_file_path = "audio_" + video_id + ".wav"
-		command = "ffmpeg -i " + "video_" + video_id + "."+ext+" -ab 160k -ac 1 -ar 44100 -vn "+audio_file_path
-		subprocess.call(command, shell=True)
+		command = ["ffmpeg", "-i", "video_"+video_id+"."+ext,"-ab","160k", "-ac","1","-ar","44100","-vn",audio_file_path]
+		subprocess.call(command)
 
 	print("Im Done")
 
