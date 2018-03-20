@@ -52,7 +52,6 @@ def download_vid(lin,count):
 		audio_file_path = "audio_" + video_id + ".wav"
 		command = ["ffmpeg", "-i", "video_"+video_id+"."+ext,"-ab","160k", "-ac","1","-ar","44100","-vn",audio_file_path]
 		subprocess.call(command)
-
 	print("Im Done")
 
 
@@ -91,3 +90,7 @@ while i<len(lines):
 		print "Joined thread"
 	print "Joined Threads"
 	threads = []
+	command = ["rm", "full_*"]
+	subprocess.call(command)
+	command = ["rm", "*.webm"]
+	subprocess.call(command)
