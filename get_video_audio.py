@@ -7,6 +7,7 @@ import youtube_dl
 import subprocess
 import time
 import threading
+import os
 
 class myThread (threading.Thread):
 	def __init__(self, lin, count):
@@ -21,12 +22,14 @@ class myThread (threading.Thread):
 
 vid2class = dict()
 
-def download_vid(lin,count):
-	words =  [word.replace(" ","") for word in lin.split(",")]
-	words = words[0:3] + [[word.replace('"','').replace("\n",'') for word in words[3:]]]
+def download_vid(lin, count):
+
+	# Extract the words consisting of video_id, start_time, end_time, list of video_tags
+	words =  [word.replace("\n","") for word in lin.split(",")]
+	words = words[0:3] + [words[3:]]
 	video_id = words[0]
 
-	vid2class[video_id]=words[3]
+	vid2class[video_id] = words[3]
 
 	ydl_opts = {
 		'start_time': int(float(words[1])),
@@ -55,42 +58,44 @@ def download_vid(lin,count):
 	print("Im Done")
 
 
-with open("ontology.json") as f:
-	data = json.load(f)
-	
-classes = dict([ (str(x['id']), str(x['name'])) for x in data])
-
-with open("balanced_train_segments.csv") as f:
+# Lines for every video
+with open("balanced_train_segments_filtered.csv") as f:
 	lines = f.readlines()
+
+# Load all tags for checking download
+with open('tags.cls') as file:
+	tags = map(lambda x: x[:-1], file.readlines())
+
+print(tags)
 
 threads = []
 i = 0
 
-while i<len(lines):
-	print i
-	try:
-		thread1 = myThread(lines[i], i)
-		thread2 = myThread(lines[i+1], i+1)
-		thread3 = myThread(lines[i+2], i+2)
+for i in range(len(lines)):
 
-		thread1.start()
-		thread2.start()
-		thread3.start()
+	if len(threads) == 3:
+		for t in threads:
+			t.join()
+			print "Joined thread"
+		threads = []
+		print "Joined Threads"
+		os.system("rm full*")
+		os.system("rm *.webm")
+		os.system("mv *.mp4 Video/")
+		os.system("mv *.wav Audio/")
 
-		threads.append(thread1)
-		threads.append(thread2)
-		threads.append(thread3)
+		# subprocess.call(command)
+		# command = ["rm", "*.webm"]
+		# subprocess.call(command)
 
-	except:
-		print "Error: unable to start thread"
-	i += 3
+	nThread = myThread(lines[i], i)
+	nThread.start()
+	threads.append(nThread)
 
-	for t in threads:
-		t.join()
-		print "Joined thread"
-	print "Joined Threads"
-	threads = []
-	command = ["rm", "full_*"]
-	subprocess.call(command)
-	command = ["rm", "*.webm"]
-	subprocess.call(command)
+for t in threads:
+	t.join()
+
+os.system("rm full*")
+os.system("rm *.webm")
+os.system("mv *.mp4 Video/")
+os.system("rm *.part")
