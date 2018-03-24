@@ -17,24 +17,41 @@ class myThread (threading.Thread):
 
 	def run(self):
 		print ("Starting " + self.name)
-		download_vid(self.lin,self.count)
+		download_vid(self.lin, self.count)
 		print ("Exiting " + self.name)
 
 vid2class = dict()
 
+
+def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.csv'):
+	with open(filename, 'w') as fi:
+		for lin in lines:
+			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+			words = words[0:3] + [words[3:]]
+			newtags = list(set(tags)&set(words[-1]))
+			if len(newtags) > 0:
+				fi.write(words[0]+","+words[1]+","+words[2]+","+",".join(newtags)+"\n")
+
+
 def download_vid(lin, count):
 
 	# Extract the words consisting of video_id, start_time, end_time, list of video_tags
-	words =  [word.replace("\n","") for word in lin.split(",")]
+	words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
 	words = words[0:3] + [words[3:]]
 	video_id = words[0]
+
+	if os.path.exists("Video/video_" + video_id + ".mp4"):
+		print("File already exists.")
+		return None
+	else:
+		print("File doesn't exist.")
 
 	vid2class[video_id] = words[3]
 
 	ydl_opts = {
 		'start_time': int(float(words[1])),
 		'end_time': int(float(words[2])),
-		'format': 'best[height<=360]',
+		'format': 'mp4[height<=360]',
 		'outtmpl' : r"{}_{}.%(ext)s".format("full",video_id)
 	}
 
@@ -59,7 +76,7 @@ def download_vid(lin, count):
 
 
 # Lines for every video
-with open("balanced_train_segments_filtered.csv") as f:
+with open("unbalanced_train_segments_filtered.csv") as f:
 	lines = f.readlines()
 
 # Load all tags for checking download
@@ -73,14 +90,14 @@ i = 0
 
 for i in range(len(lines)):
 
-	if len(threads) == 3:
+	if len(threads) == 1:
 		for t in threads:
 			t.join()
 			print "Joined thread"
 		threads = []
 		print "Joined Threads"
 		os.system("rm full*")
-		os.system("rm *.webm")
+		# os.system("rm *.webm")
 		os.system("mv *.mp4 Video/")
 		os.system("mv *.wav Audio/")
 
