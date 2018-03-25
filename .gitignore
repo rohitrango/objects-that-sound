@@ -1,2 +1,6 @@
 Video/*
 Audio/*
+*.pyc
+*.part
+*.mp4
+*.wav

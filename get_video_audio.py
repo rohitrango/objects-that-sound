@@ -23,6 +23,42 @@ class myThread (threading.Thread):
 vid2class = dict()
 
 
+def checkBalanceInFiles():
+	# Load all classes
+	with open('tags.cls') as fi:
+		classes = dict(map(lambda x: (x[:-1], 0), fi.readlines()))
+	
+	# Load the lines from the csv
+	fileToClassMap = dict()
+	with open('unbalanced_train_segments_filtered.csv') as fi:
+		lines = fi.readlines()
+		for lin in lines:
+			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+			words = words[0:3] + [words[3:]]
+			video_id = words[0]
+			fileToClassMap[video_id] = words[3]
+
+
+	with open('balanced_train_segments_filtered.csv') as fi:
+		lines = fi.readlines()
+		for lin in lines:
+			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+			words = words[0:3] + [words[3:]]
+			video_id = words[0]
+			fileToClassMap[video_id] = words[3]
+
+	# Get all downloaded files
+	for root, dirs, files in os.walk('Video/'):
+		break
+
+	files = map(lambda x: x[6:-4], files)
+	for video_id in files:
+		for xcls in fileToClassMap[video_id]:
+			classes[xcls] += 1
+
+	return classes
+
+
 def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.csv'):
 	with open(filename, 'w') as fi:
 		for lin in lines:
@@ -76,7 +112,7 @@ def download_vid(lin, count):
 
 
 # Lines for every video
-with open("unbalanced_train_segments_filtered.csv") as f:
+with open("balanced_train_segments_filtered.csv") as f:
 	lines = f.readlines()
 
 # Load all tags for checking download
@@ -86,11 +122,11 @@ with open('tags.cls') as file:
 print(tags)
 
 threads = []
-i = 0
+start = 0
 
-for i in range(len(lines)):
+for i in range(len(lines[start:])):
 
-	if len(threads) == 1:
+	if len(threads) == 2:
 		for t in threads:
 			t.join()
 			print "Joined thread"
@@ -105,7 +141,7 @@ for i in range(len(lines)):
 		# command = ["rm", "*.webm"]
 		# subprocess.call(command)
 
-	nThread = myThread(lines[i], i)
+	nThread = myThread(lines[i+start], i+start)
 	nThread.start()
 	threads.append(nThread)
 
