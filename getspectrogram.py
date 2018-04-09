@@ -88,16 +88,23 @@ def plotstft(audiopath, binsize=2**10, plotpath=None, colormap="jet"):
 		
 	plt.clf()
 
-audio_file_name = "audio_0"
+audio_file_name = "newa"
 audio_file_path = audio_file_name + ".wav"
-plotstft(audio_file_path,plotpath=audio_file_name+"_spectogram.png")
+# plotstft(audio_file_path,plotpath=audio_file_name+"_spectogram.png")
+
 
 # Alternative Method
+sample_rate, samples = wav.read(audio_file_path)
+print(samples[:48000].shape)
+frequencies, times, spectogram = signal.spectrogram(samples[:48000], sample_rate, nperseg=256, window=('tukey', 0.01), noverlap=240)
 
-# sample_rate, samples = wav.read(audio_file_path)
-# frequencies, times, spectogram = signal.spectrogram(samples, sample_rate)
-# plt.pcolormesh(times, frequencies, spectogram)
-# plt.imshow(spectogram)
-# plt.ylabel('Frequency [Hz]')
-# plt.xlabel('Time [sec]')
+# frequencies, times, spectogram = signal.spectrogram(samples[:48000], sample_rate, window=('boxcar', 0.01), noverlap=240)
+
+
+plt.pcolormesh(times, frequencies, spectogram)
+plt.imshow(np.log(spectogram))
+print(spectogram.shape)
+plt.ylabel('Frequency [Hz]')
+plt.xlabel('Time [sec]')
 # plt.savefig('spectro_0')
+plt.show()
