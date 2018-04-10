@@ -95,15 +95,13 @@ audio_file_path = audio_file_name + ".wav"
 
 # Alternative Method
 sample_rate, samples = wav.read(audio_file_path)
-print(samples[:48000].shape)
-frequencies, times, spectogram = signal.spectrogram(samples[:48000], sample_rate, nperseg=256, window=('tukey', 0.01), noverlap=240)
+# It should be nperseg = 480 and overlap = 240 ? But I get 241 x 199
+# Below values give 257 x 200
+frequencies, times, spectrogram = signal.spectrogram(samples[0:48000], sample_rate, nperseg=512, noverlap=274)
 
-# frequencies, times, spectogram = signal.spectrogram(samples[:48000], sample_rate, window=('boxcar', 0.01), noverlap=240)
-
-
-plt.pcolormesh(times, frequencies, spectogram)
-plt.imshow(np.log(spectogram))
-print(spectogram.shape)
+plt.pcolormesh(times, frequencies, spectrogram)
+plt.imshow(np.log(spectrogram))
+print(spectrogram.shape)
 plt.ylabel('Frequency [Hz]')
 plt.xlabel('Time [sec]')
 # plt.savefig('spectro_0')
