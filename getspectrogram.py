@@ -88,7 +88,7 @@ def plotstft(audiopath, binsize=2**10, plotpath=None, colormap="jet"):
 		
 	plt.clf()
 
-audio_file_name = "newa"
+audio_file_name = "audio_--aO5cdqSAg"
 audio_file_path = audio_file_name + ".wav"
 # plotstft(audio_file_path,plotpath=audio_file_name+"_spectogram.png")
 
@@ -97,12 +97,18 @@ audio_file_path = audio_file_name + ".wav"
 sample_rate, samples = wav.read(audio_file_path)
 # It should be nperseg = 480 and overlap = 240 ? But I get 241 x 199
 # Below values give 257 x 200
-frequencies, times, spectrogram = signal.spectrogram(samples[0:48000], sample_rate, nperseg=512, noverlap=274)
 
+time = 0.5
+start = int(time*48000)-24000
+end   = int(time*48000)+24000
+
+frequencies, times, spectrogram = signal.spectrogram(samples[start:end], sample_rate, nperseg=512, noverlap=274)
+print(spectrogram.shape)
+plt.figure()
 plt.pcolormesh(times, frequencies, spectrogram)
 plt.imshow(np.log(spectrogram))
 print(spectrogram.shape)
 plt.ylabel('Frequency [Hz]')
 plt.xlabel('Time [sec]')
-# plt.savefig('spectro_0')
+	# plt.savefig('spectro_0')
 plt.show()
