@@ -106,7 +106,7 @@ class GetAudioVideoDataset(Dataset):
 			video_frame_number = idx%self.fpv
 			frame_time = 500 + (video_frame_number*1000/30)
 
-			result = 1
+			result = [0]
 			rate, samples = wav.read(os.path.join(self.audio_path, self.audio_files[video_idx]))
 			# Extract relevant audio file
 			time  = frame_time/1000.0
@@ -116,7 +116,7 @@ class GetAudioVideoDataset(Dataset):
 			video_frame_number = (idx-self.length/2)%self.fpv
 			frame_time = 500 + (video_frame_number*1000/30)
 
-			result = 0
+			result = [1]
 			# Check for classes of the video and select the ones not in video
 			videoID = self.video_files[video_idx].split("video_")[1].split(".mp4")[0]
 			vidClasses = self.vidToGenre[videoID]
@@ -140,14 +140,17 @@ class GetAudioVideoDataset(Dataset):
 			print("FAILURE: Breakpoint 1, video_path = {0}".format(self.video_files[video_idx]))
 			return None, None, None
 		##############################
+		# Bring the channel to front 
+		image = image.transpose(2, 0, 1)
 
 		start = int(time*48000)-24000
 		end   = int(time*48000)+24000
 		samples = samples[start:end]
 		frequencies, times, spectrogram = signal.spectrogram(samples, self.sampleRate, nperseg=512, noverlap=274)
 
-		spec_shape = tuple(list(spectrogram.shape) + [1])
-		return torch.Tensor(image), torch.Tensor(spectrogram.reshape(spec_shape)), torch.Tensor([result])
+		spec_shape = list(spectrogram.shape)
+		spec_shape = tuple([1] + spec_shape)
+		return torch.Tensor(image), torch.Tensor(spectrogram.reshape(spec_shape)), torch.LongTensor(result)
 
 
 
