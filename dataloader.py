@@ -8,6 +8,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 # Function for getting class to video map
 # And video to class map
@@ -90,6 +91,13 @@ class GetAudioVideoDataset(Dataset):
 		self.fpv    = fps*time
 		self.length = 2*tot_frames
 
+		self._vid_transform = self._get_normalization_transform()
+
+
+	def _get_normalization_transform(self):
+		_vid_transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+		return _vid_transform
+
 
 	def __len__(self):
 		# Consider all positive and negative examples
@@ -98,6 +106,7 @@ class GetAudioVideoDataset(Dataset):
 	def __getitem__(self, idx):
 		# Given index of item, decide if its positive or negative example, and then 
 		if idx >= self.length:
+			print("ERROR")
 			return (None, None, None)
 
 		# Positive examples
@@ -138,9 +147,10 @@ class GetAudioVideoDataset(Dataset):
 		  	
 		  	# Some problem with image, return some random stuff
 		  	if image is None:
-		  		return torch.Tensor(np.random.rand(224, 224)), torch.Tensor(np.random.rand(257, 200)), torch.LongTensor([2])
+		  		return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
-		  	image = cv2.resize(image, (224,224)) 
+		  	image = cv2.resize(image, (224,224))
+		  	image = image/255.0
 
 		else:
 			print("FAILURE: Breakpoint 1, video_path = {0}".format(self.video_files[video_idx]))
@@ -156,11 +166,16 @@ class GetAudioVideoDataset(Dataset):
 
 		# Remove bad examples
 		if spectrogram.shape != (257, 200):
-			return torch.Tensor(np.random.rand(224, 224)), torch.Tensor(np.random.rand(257, 200)), torch.LongTensor([2])
+			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
+		spectrogram = np.log(spectrogram + 1e-7)
 		spec_shape = list(spectrogram.shape)
 		spec_shape = tuple([1] + spec_shape)
-		return torch.Tensor(image), torch.Tensor(spectrogram.reshape(spec_shape)), torch.LongTensor(result)
+
+		image = self._vid_transform(torch.Tensor(image))
+		audio = torch.Tensor(spectrogram.reshape(spec_shape))
+		# print(image.shape, audio.shape, result)
+		return image, audio, torch.LongTensor(result)
 
 
 
@@ -170,5 +185,6 @@ if __name__ == "__main__":
 	dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
 	for (img, aud, res) in dataloader:
 		print(img.shape, aud.shape, res.shape)
+		print(img.max(), img.min(), aud.max(), aud.min())
 	# for k in dataloader:
 	# 	print(k)

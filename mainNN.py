@@ -2,6 +2,8 @@ from image_convnet import *
 from audio_convnet import *
 from dataloader import *
 from torch.optim import *
+from torchvision.transforms import *
+import warnings
 
 class AVENet(nn.Module):
 
@@ -29,8 +31,8 @@ class AVENet(nn.Module):
 		self.fc3     = nn.Linear(1, 2)
 		self.softmax = F.softmax
 
+
 	def forward(self, image, audio):
-		
 		# Image
 		img = self.imgnet(image)
 		img = self.vpool4(img).squeeze(2).squeeze(2)
@@ -52,6 +54,9 @@ class AVENet(nn.Module):
 
 		return out, img, aud
 
+
+
+
 # Demo to check if things are working
 def demo():
 	model = AVENet()
@@ -63,30 +68,37 @@ def demo():
 	print(v.shape, a.shape, out.shape)
 
 # Main function here
-def main(use_cuda=True, EPOCHS=100, save_checkpoint=20, batch_size=64, model_name="avenet.pt"):
+def main(use_cuda=True, EPOCHS=100, save_checkpoint=1, batch_size=64, model_name="avenet.pt"):
 	
 	model = getAVENet(use_cuda)
 	dataset = GetAudioVideoDataset()
 	dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 	crossEntropy = nn.CrossEntropyLoss()
+	print("Loaded dataloader and loss function.")
 
-	optim = Adam(model.parameters(), lr=0.0001, weight_decay=1e-5)
+	optim = Adam(model.parameters(), lr=0.01, weight_decay=1e-5)
+	print("Optimizer loaded.")
 
 	for epoch in range(EPOCHS):
 		# Run algo
-		for (img, aud, out) in dataloader:
+		for subepoch, (img, aud, out) in enumerate(dataloader):
 			optim.zero_grad()
 
 			# Filter the bad ones first
 			out = out.squeeze(1)
-			idx = out != 2
+			idx = (out != 2).numpy()
 			if idx.sum() == 0:
 				continue
 
-			print(img.shape, aud.shape, out.shape)
-			img = Variable(img[idx, :, :, :])
-			aud = Variable(aud[idx, :, :, :])
-			out = Variable(out[idx])
+			# Find the new variables
+			img = torch.Tensor(img.numpy()[idx, :, :, :])
+			aud = torch.Tensor(aud.numpy()[idx, :, :, :])
+			out = torch.LongTensor(out.numpy()[idx])
+
+			# Print shapes
+			img = Variable(img)
+			aud = Variable(aud)
+			out = Variable(out)
 			print(img.shape, aud.shape, out.shape)
 
 			if use_cuda:
@@ -100,7 +112,7 @@ def main(use_cuda=True, EPOCHS=100, save_checkpoint=20, batch_size=64, model_nam
 			loss = crossEntropy(o, out)
 			loss.backward()
 			optim.step()
-			print("Loss: %f"%(loss.data[0]))
+			print("Epoch: %d, Subepoch: %d, Loss: %f"%(epoch, subepoch, loss.data[0]))
 
 		if epoch>0 and epoch%save_checkpoint==0:
 			torch.save(model.state_dict(), model_name)
