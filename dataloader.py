@@ -73,8 +73,8 @@ class GetAudioVideoDataset(Dataset):
 				break
 
 		# Print video and audio files at this point
-		print(self.video_files)
-		print(self.audio_files)
+		# print(self.video_files)
+		# print(self.audio_files)
 
 		## Calculate the number of frames and set a length appropriately
 
@@ -135,7 +135,13 @@ class GetAudioVideoDataset(Dataset):
 		success = True
 		if success:
 		  	success, image = vidcap.read()
+		  	
+		  	# Some problem with image, return some random stuff
+		  	if image is None:
+		  		return torch.Tensor(np.random.rand(224, 224)), torch.Tensor(np.random.rand(257, 200)), torch.LongTensor([2])
+
 		  	image = cv2.resize(image, (224,224)) 
+
 		else:
 			print("FAILURE: Breakpoint 1, video_path = {0}".format(self.video_files[video_idx]))
 			return None, None, None
@@ -148,6 +154,10 @@ class GetAudioVideoDataset(Dataset):
 		samples = samples[start:end]
 		frequencies, times, spectrogram = signal.spectrogram(samples, self.sampleRate, nperseg=512, noverlap=274)
 
+		# Remove bad examples
+		if spectrogram.shape != (257, 200):
+			return torch.Tensor(np.random.rand(224, 224)), torch.Tensor(np.random.rand(257, 200)), torch.LongTensor([2])
+
 		spec_shape = list(spectrogram.shape)
 		spec_shape = tuple([1] + spec_shape)
 		return torch.Tensor(image), torch.Tensor(spectrogram.reshape(spec_shape)), torch.LongTensor(result)
@@ -157,7 +167,7 @@ class GetAudioVideoDataset(Dataset):
 if __name__ == "__main__":
 	# a, b = getMappings()
 	dataset = GetAudioVideoDataset()
-	dataloader = DataLoader(dataset, batch_size=20, shuffle=False)
+	dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
 	for (img, aud, res) in dataloader:
 		print(img.shape, aud.shape, res.shape)
 	# for k in dataloader:

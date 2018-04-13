@@ -63,7 +63,7 @@ def demo():
 	print(v.shape, a.shape, out.shape)
 
 # Main function here
-def main(use_cuda=True, EPOCHS=100, save_checkpoint=100, batch_size=64, model_name="avenet.pt"):
+def main(use_cuda=True, EPOCHS=100, save_checkpoint=20, batch_size=64, model_name="avenet.pt"):
 	
 	model = getAVENet(use_cuda)
 	dataset = GetAudioVideoDataset()
@@ -76,9 +76,18 @@ def main(use_cuda=True, EPOCHS=100, save_checkpoint=100, batch_size=64, model_na
 		# Run algo
 		for (img, aud, out) in dataloader:
 			optim.zero_grad()
-			img = Variable(img)
-			aud = Variable(aud)
-			out = Variable(out.squeeze(1))
+
+			# Filter the bad ones first
+			out = out.squeeze(1)
+			idx = out != 2
+			if idx.sum() == 0:
+				continue
+
+			print(img.shape, aud.shape, out.shape)
+			img = Variable(img[idx, :, :, :])
+			aud = Variable(aud[idx, :, :, :])
+			out = Variable(out[idx])
+			print(img.shape, aud.shape, out.shape)
 
 			if use_cuda:
 				img = img.cuda()
