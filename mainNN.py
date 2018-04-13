@@ -5,6 +5,15 @@ from torch.optim import *
 from torchvision.transforms import *
 import warnings
 
+## Handle warnings here
+# CITE: https://stackoverflow.com/questions/858916/how-to-redirect-python-warnings-to-a-custom-stream
+warnings_file = open("warning_logs.txt", "w+")
+def customwarn(message, category, filename, lineno, file=None, line=None):
+    warnings_file.write(warnings.formatwarning(message, category, filename, lineno))
+
+warnings.showwarning = customwarn
+
+## Main NN starts here
 class AVENet(nn.Module):
 
 	def __init__(self):
@@ -70,6 +79,9 @@ def demo():
 # Main function here
 def main(use_cuda=True, EPOCHS=100, save_checkpoint=1, batch_size=64, model_name="avenet.pt"):
 	
+
+	lossfile = open("losses.txt", "w")
+	print("Using batch size: %d"%batch_size)
 	model = getAVENet(use_cuda)
 	dataset = GetAudioVideoDataset()
 	dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
@@ -86,7 +98,7 @@ def main(use_cuda=True, EPOCHS=100, save_checkpoint=1, batch_size=64, model_name
 
 			# Filter the bad ones first
 			out = out.squeeze(1)
-			idx = (out != 2).numpy()
+			idx = (out != 2).numpy().astype(bool)
 			if idx.sum() == 0:
 				continue
 
@@ -99,8 +111,10 @@ def main(use_cuda=True, EPOCHS=100, save_checkpoint=1, batch_size=64, model_name
 			img = Variable(img)
 			aud = Variable(aud)
 			out = Variable(out)
-			print(img.shape, aud.shape, out.shape)
 
+			# print(img.shape, aud.shape, out.shape)
+
+			M = img.shape[0]
 			if use_cuda:
 				img = img.cuda()
 				aud = aud.cuda()
@@ -112,9 +126,10 @@ def main(use_cuda=True, EPOCHS=100, save_checkpoint=1, batch_size=64, model_name
 			loss = crossEntropy(o, out)
 			loss.backward()
 			optim.step()
-			print("Epoch: %d, Subepoch: %d, Loss: %f"%(epoch, subepoch, loss.data[0]))
+			print("Epoch: %d, Subepoch: %d, Loss: %f, batch_size: %d"%(epoch, subepoch, loss.data[0], M))
+			lossfile.write("Epoch: %d, Subepoch: %d, Loss: %f\n"%(epoch, subepoch, loss.data[0]))
 
-		if epoch>0 and epoch%save_checkpoint==0:
+		if epoch%save_checkpoint==0:
 			torch.save(model.state_dict(), model_name)
 			print("Checkpoint saved.")
 
@@ -135,5 +150,5 @@ if __name__ == "__main__":
 	cuda = True
 	main(use_cuda=cuda, batch_size=64)
 	# demo()
-
+	warnings_file.close()
 

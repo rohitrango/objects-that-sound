@@ -4,3 +4,6 @@ Audio/*
 *.part
 *.mp4
 *.wav
+losses.txt
+warnings_logs.txt
+warning_logs.txt
