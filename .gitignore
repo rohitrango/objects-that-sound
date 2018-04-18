@@ -7,3 +7,8 @@ Audio/*
 losses.txt
 warnings_logs.txt
 warning_logs.txt
+backups/*
+losses
+*.pt
+*.jpg
+*.png

@@ -10,14 +10,15 @@ import threading
 import os
 
 class myThread (threading.Thread):
-	def __init__(self, lin, count):
+	def __init__(self, lin, count, isValString):
 		threading.Thread.__init__(self)
 		self.lin = lin
 		self.count = count
+		self.isValString = isValString
 
 	def run(self):
 		print ("Starting " + self.name)
-		download_vid(self.lin, self.count)
+		download_vid(self.lin, self.count, self.isValString)
 		print ("Exiting " + self.name)
 
 vid2class = dict()
@@ -59,6 +60,51 @@ def checkBalanceInFiles():
 	return classes
 
 
+def filtValidation():
+
+	# Load all classes
+	with open('tags.cls') as fi:
+		classes = dict(map(lambda x: (x[:-1], 0), fi.readlines()))
+
+	checkVideo = []
+	fileToClassMap = dict()		
+	with open('balanced_train_segments_filtered.csv') as fi:
+		lines = fi.readlines()
+		for lin in lines:
+			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+			words = words[0:3] + [words[3:]]
+			video_id = words[0]
+
+			# Add potential video and its details into checkVideo and fileToClass map
+
+			checkVideo.append((words[0], lin))
+			fileToClassMap[video_id] = words[3]			
+
+	
+	for r, dirs, files in os.walk("Video/"):
+		if len(files) > 0:
+			break
+
+	# filter files to only have the video_id
+	files = map(lambda x: x.split(".mp4")[0].split("video_")[1], files)
+	
+	# CheckVideo is the list of videos not downloaded with their details in fileToClassMap
+	checkVideo = filter(lambda x: x[0] not in files, checkVideo)
+	for video_id, lin in checkVideo:
+		for xcls in fileToClassMap[video_id]:
+			classes[xcls] += 1
+
+	#print(checkVideo)
+	#print(json.dumps(classes, indent=4))
+	
+	# Open a new file and dump it there
+	with open("balanced_validation.csv", "w+") as fi:
+		fi.writelines(map(lambda x: x[1], checkVideo))
+
+	print("Done")
+
+
+
 def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.csv'):
 	with open(filename, 'w') as fi:
 		for lin in lines:
@@ -69,14 +115,14 @@ def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.
 				fi.write(words[0]+","+words[1]+","+words[2]+","+",".join(newtags)+"\n")
 
 
-def download_vid(lin, count):
+def download_vid(lin, count, valString):
 
 	# Extract the words consisting of video_id, start_time, end_time, list of video_tags
 	words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
 	words = words[0:3] + [words[3:]]
 	video_id = words[0]
 
-	if os.path.exists("Video/video_" + video_id + ".mp4"):
+	if os.path.exists("Video" + valString + "/video_" + video_id + ".mp4"):
 		print("File already exists.")
 		return None
 	else:
@@ -111,44 +157,61 @@ def download_vid(lin, count):
 	print("Im Done")
 
 
-# Lines for every video
-with open("balanced_train_segments_filtered.csv") as f:
-	lines = f.readlines()
+def downloadAllVideos(validation=False):
+	# Lines for every video
+	print("Validation : {0}".format(validation))
+	if validation:
+		filename = "balanced_validation.csv"
+		isValString = "_val"
+	else:
+		filename = "balanced_train_segments_filtered.csv"
+		isValString = ""
 
-# Load all tags for checking download
-with open('tags.cls') as file:
-	tags = map(lambda x: x[:-1], file.readlines())
+	with open(filename) as f:
+		lines = f.readlines()
 
-print(tags)
+	print("Downloading {0} videos.".format(len(lines)))
+	# Load all tags for checking download
+	with open('tags.cls') as file:
+		tags = map(lambda x: x[:-1], file.readlines())
 
-threads = []
-start = 0
+	print(tags)
 
-for i in range(len(lines[start:])):
+	threads = []
+	start = 0
+	lines.reverse()
 
-	if len(threads) == 2:
-		for t in threads:
-			t.join()
-			print "Joined thread"
-		threads = []
-		print "Joined Threads"
-		os.system("rm full*")
-		# os.system("rm *.webm")
-		os.system("mv *.mp4 Video/")
-		os.system("mv *.wav Audio/")
+	for i in range(len(lines[start:])):
 
-		# subprocess.call(command)
-		# command = ["rm", "*.webm"]
-		# subprocess.call(command)
+		if len(threads) == 2:
+			for t in threads:
+				t.join()
+				print "Joined thread"
+			threads = []
+			print "Joined Threads"
+			os.system("rm full*")
+			# os.system("rm *.webm")
+			os.system("mv *.mp4 Video{0}/".format(isValString))
+			os.system("mv *.wav Audio{0}/".format(isValString))
 
-	nThread = myThread(lines[i+start], i+start)
-	nThread.start()
-	threads.append(nThread)
+			# subprocess.call(command)
+			# command = ["rm", "*.webm"]
+			# subprocess.call(command)
 
-for t in threads:
-	t.join()
+		nThread = myThread(lines[i+start], i+start, isValString)
+		nThread.start()
+		threads.append(nThread)
 
-os.system("rm full*")
-os.system("rm *.webm")
-os.system("mv *.mp4 Video/")
-os.system("rm *.part")
+	for t in threads:
+		t.join()
+
+	os.system("rm full*")
+	os.system("rm *.webm")
+	os.system("mv *.mp4 Video{0}/".format(isValString))
+	os.system("mv *.wav Audio{0}/".format(isValString))
+	os.system("rm *.part")
+
+
+if __name__ == "__main__":
+	downloadAllVideos(True)
+

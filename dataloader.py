@@ -48,14 +48,54 @@ def getMappings(path1="balanced_train_segments_filtered.csv", path2="unbalanced_
 	return vidToGenre, genreToVid
 
 
+def getValMappings(path1="balanced_validation.csv", check_file="videoToGenreVal.json", videoFolder="Video_val"):
+	# Read from files and generate mappings
+	
+	if os.path.exists(check_file):
+		with open(check_file) as fi:
+			vidToGenre, genreToVid = json.loads(fi.read())
+		return vidToGenre, genreToVid
+
+	# Else
+	vidToGenre = dict()
+	genreToVid = dict()
+	for path in [path1]:
+		# genre to video path
+		p = open(path)
+		lines = p.readlines()
+		for lin in lines:
+			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+			words = words[0:3] + [words[3:]]
+			video_id = words[0]
+
+			# Check if video is present in the folder
+			if not os.path.exists(os.path.join(videoFolder, "video_" + video_id + ".mp4")):
+				continue
+
+			vidToGenre[video_id] = words[3]
+			# For all genres, add the video to it
+			for genre in words[3]:
+				genreToVid[genre] = genreToVid.get(genre, []) + [video_id]
+
+	# Save the file
+	with open(check_file, "w+") as fi:
+		fi.write(json.dumps([vidToGenre, genreToVid]))
+
+	return vidToGenre, genreToVid
+
+
 ## Define custom dataset here
 class GetAudioVideoDataset(Dataset):
 
-	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None):
+	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None, validation=False):
 		self.video_path = video_path
 		self.audio_path = audio_path
 		self.transforms = transforms
-		v2g, g2v = getMappings()
+		if validation:
+			v2g, g2v = getValMappings()
+		else:
+			v2g, g2v = getMappings()
+
 
 		self.vidToGenre = v2g
 		self.genreToVid = g2v
@@ -91,12 +131,14 @@ class GetAudioVideoDataset(Dataset):
 		self.fpv    = fps*time
 		self.length = 2*tot_frames
 
-		self._vid_transform = self._get_normalization_transform()
+		self._vid_transform, self._aud_transform = self._get_normalization_transform()
 
 
 	def _get_normalization_transform(self):
 		_vid_transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-		return _vid_transform
+		_aud_transform = Compose([Normalize(mean=[0.0], std=[12.0])])
+
+		return _vid_transform, _aud_transform
 
 
 	def __len__(self):
@@ -174,6 +216,7 @@ class GetAudioVideoDataset(Dataset):
 
 		image = self._vid_transform(torch.Tensor(image))
 		audio = torch.Tensor(spectrogram.reshape(spec_shape))
+		audio = self._aud_transform(audio)
 		# print(image.shape, audio.shape, result)
 		return image, audio, torch.LongTensor(result)
 
