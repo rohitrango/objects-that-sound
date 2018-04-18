@@ -91,7 +91,10 @@ def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=6
 
 
 	dataset = GetAudioVideoDataset()
+	valdataset = GetAudioVideoDataset(video_path="Video_val/", audio_path="Audio_val/", validation=True)
 	dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+	valdataloader = DataLoader(valdataset, batch_size=batch_size, shuffle=True)
+
 	crossEntropy = nn.CrossEntropyLoss()
 	print("Loaded dataloader and loss function.")
 
@@ -139,8 +142,45 @@ def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=6
 				_, ind = o.max(1)
 				accuracy = (ind.data == out.data).sum()*1.0/M
 
-				print("Epoch: %d, Subepoch: %d, Loss: %f, batch_size: %d, acc: %f"%(epoch, subepoch, loss.data[0], M, accuracy))
-				lossfile.write("Epoch: %d, Subepoch: %d, Loss: %f, batch_size: %d, acc: %f\n"%(epoch, subepoch, loss.data[0], M, accuracy))
+				# Periodically print subepoch values
+				if subepoch%10 == 0:
+					model.eval()
+					for (img, aud, out) in valdataloader:
+						break
+					# Filter the bad ones first
+					out = out.squeeze(1)
+					idx = (out != 2).numpy().astype(bool)
+					if idx.sum() == 0:
+						continue
+					# Find the new variables
+					img = torch.Tensor(img.numpy()[idx, :, :, :])
+					aud = torch.Tensor(aud.numpy()[idx, :, :, :])
+					out = torch.LongTensor(out.numpy()[idx])
+
+					# Print shapes
+					img = Variable(img, volatile=True)
+					aud = Variable(aud, volatile=True)
+					out = Variable(out, volatile=True)
+
+					# print(img.shape, aud.shape, out.shape)
+
+					M = img.shape[0]
+					if use_cuda:
+						img = img.cuda()
+						aud = aud.cuda()
+						out = out.cuda()
+
+					o, _, _ = model(img, aud)
+					valloss = crossEntropy(o, out)
+					# Calculate valaccuracy
+					_, ind = o.max(1)
+					valaccuracy = (ind.data == out.data).sum()*1.0/M
+
+					print("Epoch: %d, Subepoch: %d, Loss: %f, Valloss: %f, batch_size: %d, acc: %f, valacc: %f"%(epoch, subepoch, loss.data[0], valloss.data[0], M, accuracy, valaccuracy))
+					lossfile.write("Epoch: %d, Subepoch: %d, Loss: %f, Valloss: %f, batch_size: %d, acc: %f, valacc: %f\n"%(epoch, subepoch, loss.data[0], valloss.data[0], M, accuracy, valaccuracy))
+					model.train()
+				
+				# Save model
 				if subepoch%save_checkpoint == 0 and subepoch > 0:
 					torch.save(model.state_dict(), model_name)
 					print("Checkpoint saved.")

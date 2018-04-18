@@ -1,22 +1,28 @@
 # coding: utf-8
 from matplotlib import pyplot as plt
 from scipy.signal import medfilt
+import numpy as np
 
 # bash script to copy from losses.txt to losses
 # cat losses.txt  | cut -d " " -f 10
-with open("losses") as fi:
-    lines = fi.readlines()
+with open("losses.txt") as fi:
+    lines = map(lambda x: x.strip("\n").replace(",", ""), fi.readlines())
 
-lines = lines[:-1]
-lines = filter(lambda x: "Epoch" not in x, lines)
-lines = map(lambda x: float(x[:-1]), lines)
-import numpy as np
-lines = np.array(lines)
+# lines = filter(lambda x: "Epoch" not in x, lines)
+# lines = map(lambda x: float(x[:-1]), lines)
+# lines = np.array(lines)
+valacc = map(lambda x: float(x.split(" ")[-1]), lines)
+acc = map(lambda x: float(x.split(" ")[-3]), lines)
 
-x = np.convolve(lines, np.ones((20,))/20.0, mode='valid')
-plt.plot(x)
+N = 50
+acc = np.convolve(acc, np.ones((N,))/(N*1.0), mode='valid')
+valacc = np.convolve(valacc, np.ones((N,))/(N*1.0), mode='valid')
+
+plt.figure()
+plt.plot(acc)
+plt.plot(valacc)
 plt.show()
 
-med = medfilt(x, 21)
-plt.plot(med)
-plt.show()
+# med = medfilt(x, 21)
+# plt.plot(med)
+# plt.show()
