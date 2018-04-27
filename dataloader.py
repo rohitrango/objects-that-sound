@@ -12,8 +12,7 @@ from torchvision.transforms import Compose, Normalize, ToTensor
 
 # Function for getting class to video map
 # And video to class map
-def getMappings(path1="balanced_train_segments_filtered.csv", path2="unbalanced_train_segments_filtered.csv"\
-					, check_file="videoToGenre.json", videoFolder="Video"):
+def getMappings(path1="videos.csv", check_file="videoToGenre.json", videoFolder="Video"):
 	# Read from files and generate mappings
 	if os.path.exists(check_file):
 		with open(check_file) as fi:
@@ -23,7 +22,7 @@ def getMappings(path1="balanced_train_segments_filtered.csv", path2="unbalanced_
 	# Else
 	vidToGenre = dict()
 	genreToVid = dict()
-	for path in [path1, path2]:
+	for path in [path1]:
 		# genre to video path
 		p = open(path)
 		lines = p.readlines()
@@ -48,7 +47,7 @@ def getMappings(path1="balanced_train_segments_filtered.csv", path2="unbalanced_
 	return vidToGenre, genreToVid
 
 
-def getValMappings(path1="balanced_validation.csv", check_file="videoToGenreVal.json", videoFolder="Video_val"):
+def getValMappings(path1="videos.csv", check_file="videoToGenreVal.json", videoFolder="Video_val"):
 	# Read from files and generate mappings
 	
 	if os.path.exists(check_file):

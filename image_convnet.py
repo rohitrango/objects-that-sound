@@ -55,6 +55,7 @@ class ImageConvNet(nn.Module):
 	def loss(self, output):
 		return (output.mean())**2
 
+
 if __name__ == "__main__":
 	model = ImageConvNet().cuda()
 	print("Model loaded.")

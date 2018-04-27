@@ -24,14 +24,14 @@ class myThread (threading.Thread):
 vid2class = dict()
 
 
-def checkBalanceInFiles():
+def checkBalanceInFiles(path="Video/"):
 	# Load all classes
 	with open('tags.cls') as fi:
 		classes = dict(map(lambda x: (x[:-1], 0), fi.readlines()))
 	
 	# Load the lines from the csv
 	fileToClassMap = dict()
-	with open('unbalanced_train_segments_filtered.csv') as fi:
+	with open('videos.csv') as fi:
 		lines = fi.readlines()
 		for lin in lines:
 			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
@@ -40,16 +40,16 @@ def checkBalanceInFiles():
 			fileToClassMap[video_id] = words[3]
 
 
-	with open('balanced_train_segments_filtered.csv') as fi:
-		lines = fi.readlines()
-		for lin in lines:
-			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
-			words = words[0:3] + [words[3:]]
-			video_id = words[0]
-			fileToClassMap[video_id] = words[3]
+	# with open('balanced_train_segments_filtered.csv') as fi:
+	# 	lines = fi.readlines()
+	# 	for lin in lines:
+	# 		words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
+	# 		words = words[0:3] + [words[3:]]
+	# 		video_id = words[0]
+	# 		fileToClassMap[video_id] = words[3]
 
 	# Get all downloaded files
-	for root, dirs, files in os.walk('Video/'):
+	for root, dirs, files in os.walk(path):
 		break
 
 	files = map(lambda x: x[6:-4], files)
@@ -157,6 +157,18 @@ def download_vid(lin, count, valString):
 	print("Im Done")
 
 
+def convertAudio(path="."):
+
+	for r, dirs, files in os.walk(path):
+		break
+
+	for f in files:
+		audio_file_name = f.replace("video_", "audio_").replace(".mp4", ".wav")
+		command = ["ffmpeg", "-i", f,"-ab","160k", "-ac","1","-ar","48000","-vn",audio_file_name]
+		subprocess.call(command)
+	print("Done")
+
+
 def downloadAllVideos(validation=False):
 	# Lines for every video
 	print("Validation : {0}".format(validation))
@@ -164,7 +176,7 @@ def downloadAllVideos(validation=False):
 		filename = "balanced_validation.csv"
 		isValString = "_val"
 	else:
-		filename = "balanced_train_segments_filtered.csv"
+		filename = "unbalanced_train_segments_filtered.csv"
 		isValString = ""
 
 	with open(filename) as f:
@@ -178,8 +190,8 @@ def downloadAllVideos(validation=False):
 	print(tags)
 
 	threads = []
-	start = 0
-	lines.reverse()
+	start = 8002
+	# lines.reverse()
 
 	for i in range(len(lines[start:])):
 
@@ -213,5 +225,5 @@ def downloadAllVideos(validation=False):
 
 
 if __name__ == "__main__":
-	downloadAllVideos(True)
+	downloadAllVideos(False)
 

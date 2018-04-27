@@ -78,7 +78,7 @@ def demo():
 	print(v.shape, a.shape, out.shape)
 
 # Main function here
-def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
+def main(use_cuda=True, lr=1e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
 	
 	lossfile = open("losses.txt", "a+")
 	print("Using batch size: %d"%batch_size)
@@ -100,6 +100,7 @@ def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=6
 
 	optim = Adam(model.parameters(), lr=lr, weight_decay=1e-5)
 	print("Optimizer loaded.")
+	model.train()
 
 	try:
 		for epoch in range(EPOCHS):
@@ -187,7 +188,6 @@ def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=6
 
 	except Exception as e:
 		print(e)
-		torch.save(model.state_dict(), model_name)
 		torch.save(model.state_dict(), "backup"+model_name)
 		print("Checkpoint saved and backup.")
 
