@@ -78,10 +78,12 @@ def demo():
 	print(v.shape, a.shape, out.shape)
 
 # Main function here
-def main(use_cuda=True, lr=1e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
+def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
 	
 	lossfile = open("losses.txt", "a+")
 	print("Using batch size: %d"%batch_size)
+	print("Using lr: %f"%lr)
+
 	model = getAVENet(use_cuda)
 
 	# Load from before
@@ -98,7 +100,7 @@ def main(use_cuda=True, lr=1e-4, EPOCHS=100, save_checkpoint=500, batch_size=64,
 	crossEntropy = nn.CrossEntropyLoss()
 	print("Loaded dataloader and loss function.")
 
-	optim = Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+	optim = Adam(model.parameters(), lr=lr, weight_decay=1e-7)
 	print("Optimizer loaded.")
 	model.train()
 
@@ -197,10 +199,14 @@ def main(use_cuda=True, lr=1e-4, EPOCHS=100, save_checkpoint=500, batch_size=64,
 
 def getAVENet(use_cuda):
 	model = AVENet()
-	model.fc3.weight.data[0] = -0.1
-	model.fc3.weight.data[1] =  0.1
-	model.fc3.bias.data[0] =  1.0
-	model.fc3.bias.data[1] = -1.0
+	# model.fc3.weight.data[0] = -0.1
+	# model.fc3.weight.data[1] =  0.1
+	# model.fc3.bias.data[0] =   1.0
+	# model.fc3.bias.data[1] = - 1.0
+	model.fc3.weight.data[0] = -0.7090
+	model.fc3.weight.data[1] =  0.7090
+	model.fc3.bias.data[0] =   1.2186
+	model.fc3.bias.data[1] = - 1.2186
 	if use_cuda:
 		model = model.cuda()
 
@@ -218,8 +224,6 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 		print("Loading from previous checkpoint.")
 
 
-	optim = Adam(model.parameters(), lr=1, weight_decay=1e-5)
-
 	print("Model name: {0}".format(model_name))
 	if validation:
 		print("Using validation")
@@ -229,16 +233,17 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 		dataset = GetAudioVideoDataset()
 
 
-	dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+	dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 	crossEntropy = nn.CrossEntropyLoss()
 	print("Loaded dataloader and loss function.")
 	model.eval()
-	acc = []
+	correct = []
+	count = []
+	losses= []
 
 	try:
 		for subepoch, (img, aud, out) in enumerate(dataloader):
 			# Filter the bad ones first
-			optim.zero_grad()
 			out = out.squeeze(1)
 			idx = (out != 2).numpy().astype(bool)
 			if idx.sum() == 0:
@@ -267,19 +272,30 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 			loss = crossEntropy(o, out).data[0]
 			# Calculate accuracy
 			_, ind = o.max(1)
-			accuracy = (ind.data == out.data).sum()*1.0/M
-			print("Subepoch: %d, Loss: %f, batch_size: %d, acc: %f"%(subepoch, loss, M, accuracy))
+			acc = (ind.data == out.data).sum()*1.0
+			correct.append(acc)
+			losses.append(loss)
+			count.append(M)
+			print(subepoch, acc, M, acc/M, loss)
 
 	except Exception as e:
 		print(e)
 
-
+	M = sum(count)
+	corr = sum(correct)
+	print("Total frames: {0}:".format(M))
+	print("Total correct: {0}:".format(corr))
+	print("Total accuracy: {0}:".format(corr/M))
+	print("Total loss: {0}:".format(np.mean(losses)))
+	
+	
 
 
 if __name__ == "__main__":
 	cuda = True
-	main(use_cuda=cuda, batch_size=64)
-	# checkValidation(use_cuda=cuda, batch_size=64, model_name="models/avenet_2.pt", validation=False)
+	main(use_cuda=cuda, batch_size=32)
+	# checkValidation(use_cuda=cuda, batch_size=128, \
+			# model_name="models/avenet.pt")
 	# demo()
 	warnings_file.close()
 

@@ -1,0 +1,1 @@
+losses_bad -> params: lr = 0.75e-4, weight_decay = 1e-4, weights: -0.1, 0.2
