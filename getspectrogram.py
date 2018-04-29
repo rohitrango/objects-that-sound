@@ -88,7 +88,7 @@ def plotstft(audiopath, binsize=2**10, plotpath=None, colormap="jet"):
 		
 	plt.clf()
 
-audio_file_name = "audio_--aO5cdqSAg"
+audio_file_name = "audio_-0SdAVK79lg"
 audio_file_path = audio_file_name + ".wav"
 # plotstft(audio_file_path,plotpath=audio_file_name+"_spectogram.png")
 
@@ -109,6 +109,6 @@ plt.pcolormesh(times, frequencies, spectrogram)
 plt.imshow(np.log(spectrogram))
 print(spectrogram.shape)
 plt.ylabel('Frequency [Hz]')
-plt.xlabel('Time [sec]')
+plt.xlabel('Time [5 msec]')
 	# plt.savefig('spectro_0')
 plt.show()
