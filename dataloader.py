@@ -10,6 +10,12 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torchvision.transforms import Compose, Normalize, ToTensor
 
+# Get index for each genre
+with open("tags.cls") as fi:
+	tags = map(lambda x: x[:-1], fi.readlines())
+	tags = dict((x, i) for i, x in enumerate(tags))
+
+
 # Function for getting class to video map
 # And video to class map
 def getMappings(path1="videos.csv", check_file="videoToGenre.json", videoFolder="Video"):
@@ -86,12 +92,15 @@ def getValMappings(path1="videos.csv", check_file="videoToGenreVal.json", videoF
 ## Define custom dataset here
 class GetAudioVideoDataset(Dataset):
 
-	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None, validation=False):
+	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None, validation=None, return_tags=False):
 		self.video_path = video_path
 		self.audio_path = audio_path
 		self.transforms = transforms
-		if validation:
+		self.return_tags = return_tags
+		if validation == True or validation == "validation":
 			v2g, g2v = getValMappings()
+		elif validation == "test":
+			v2g, g2v = getValMappings("videos.csv", "videosToGenreTest.json", "Video_test")
 		else:
 			v2g, g2v = getMappings()
 
@@ -148,7 +157,11 @@ class GetAudioVideoDataset(Dataset):
 		# Given index of item, decide if its positive or negative example, and then 
 		if idx >= self.length:
 			print("ERROR")
-			return (None, None, None)
+			if self.return_tags:
+				return (None, None, None, None, None)
+			else:
+				return (None, None, None)
+
 
 		# Positive examples
 		if idx < self.length/2:
@@ -160,6 +173,12 @@ class GetAudioVideoDataset(Dataset):
 			rate, samples = wav.read(os.path.join(self.audio_path, self.audio_files[video_idx]))
 			# Extract relevant audio file
 			time  = frame_time/1000.0
+			# Get video ID
+			videoID = self.video_files[video_idx].split("video_")[1].split(".mp4")[0]
+			vidClasses = self.vidToGenre[videoID]
+			vidIndex = tags[vidClasses[0]]
+			audIndex = vidIndex
+
 		# Negative examples
 		else:
 			video_idx = int((idx-self.length/2)/self.fpv)
@@ -177,6 +196,13 @@ class GetAudioVideoDataset(Dataset):
 			rate, samples = wav.read(os.path.join(self.audio_path, "audio_" + randomVideoID + ".wav"))
 			time = (500 + (np.random.randint(self.fpv)*1000/30))/1000.0
 
+			# Get video ID
+			videoID = self.video_files[video_idx].split("video_")[1].split(".mp4")[0]
+			vidClasses = self.vidToGenre[videoID]
+			vidIndex = tags[vidClasses[0]]
+			audIndex = tags[randomClass]
+
+
 		# Extract relevant frame
 		#########################
 		vidcap = cv2.VideoCapture(os.path.join(self.video_path, self.video_files[video_idx]))
@@ -188,14 +214,18 @@ class GetAudioVideoDataset(Dataset):
 		  	
 		  	# Some problem with image, return some random stuff
 		  	if image is None:
-		  		return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
+		  		if self.return_tags:
+		  			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+		  					, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+		  		else:
+		  			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
 		  	image = cv2.resize(image, (224,224))
 		  	image = image/255.0
 
 		else:
 			print("FAILURE: Breakpoint 1, video_path = {0}".format(self.video_files[video_idx]))
-			return None, None, None
+			return None, None, None, None, None
 		##############################
 		# Bring the channel to front 
 		image = image.transpose(2, 0, 1)
@@ -207,8 +237,13 @@ class GetAudioVideoDataset(Dataset):
 
 		# Remove bad examples
 		if spectrogram.shape != (257, 200):
-			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
+			if self.return_tags:
+				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+						, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+			else:
+				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
+		# Audio
 		spectrogram = np.log(spectrogram + 1e-7)
 		spec_shape = list(spectrogram.shape)
 		spec_shape = tuple([1] + spec_shape)
@@ -217,7 +252,10 @@ class GetAudioVideoDataset(Dataset):
 		audio = torch.Tensor(spectrogram.reshape(spec_shape))
 		audio = self._aud_transform(audio)
 		# print(image.shape, audio.shape, result)
-		return image, audio, torch.LongTensor(result)
+		if self.return_tags:
+			return image, audio, torch.LongTensor(result), torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+		else:
+			return image, audio, torch.LongTensor(result)
 
 
 

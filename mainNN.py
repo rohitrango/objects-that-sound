@@ -5,7 +5,8 @@ from torch.optim import *
 from torchvision.transforms import *
 import warnings
 import numpy as np
-
+from sklearn.manifold import TSNE
+from matplotlib import pyplot as plt
 ## Handle warnings here
 # CITE: https://stackoverflow.com/questions/858916/how-to-redirect-python-warnings-to-a-custom-stream
 warnings_file = open("warning_logs.txt", "w+")
@@ -65,6 +66,15 @@ class AVENet(nn.Module):
 		return out, img, aud
 
 
+	def get_image_embeddings(self, image):
+		# Just get the image embeddings
+		img = self.imgnet(image)
+		img = self.vpool4(img).squeeze(2).squeeze(2)
+		img = self.relu(self.vfc1(img))
+		img = self.vfc2(img)
+		img = self.vl2norm(img)
+		return img
+
 
 
 # Demo to check if things are working
@@ -78,7 +88,7 @@ def demo():
 	print(v.shape, a.shape, out.shape)
 
 # Main function here
-def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
+def main(use_cuda=True, lr=0.25e-4, EPOCHS=100, save_checkpoint=500, batch_size=64, model_name="avenet.pt"):
 	
 	lossfile = open("losses.txt", "a+")
 	print("Using batch size: %d"%batch_size)
@@ -100,7 +110,8 @@ def main(use_cuda=True, lr=1.0e-4, EPOCHS=100, save_checkpoint=500, batch_size=6
 	crossEntropy = nn.CrossEntropyLoss()
 	print("Loaded dataloader and loss function.")
 
-	optim = Adam(model.parameters(), lr=lr, weight_decay=1e-7)
+	# optim = Adam(model.parameters(), lr=lr, weight_decay=1e-7)
+	optim = SGD(model.parameters(), lr=lr)
 	print("Optimizer loaded.")
 	model.train()
 
@@ -225,9 +236,12 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 
 
 	print("Model name: {0}".format(model_name))
-	if validation:
+	if validation == True or validation == "validation":
 		print("Using validation")
 		dataset = GetAudioVideoDataset(video_path="Video_val/", audio_path="Audio_val/", validation=True)
+	elif validation == "test":
+		print("Using test.")
+		dataset = GetAudioVideoDataset(video_path="Video_test/", audio_path="Audio_test/", validation="test")
 	else:
 		print("Using training")
 		dataset = GetAudioVideoDataset()
@@ -240,6 +254,7 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 	correct = []
 	count = []
 	losses= []
+	print(len(dataset))
 
 	try:
 		for subepoch, (img, aud, out) in enumerate(dataloader):
@@ -277,6 +292,8 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 			losses.append(loss)
 			count.append(M)
 			print(subepoch, acc, M, acc/M, loss)
+			if subepoch == 100:
+				break
 
 	except Exception as e:
 		print(e)
@@ -284,18 +301,121 @@ def checkValidation(use_cuda=True, batch_size=64, model_name="avenet.pt", valida
 	M = sum(count)
 	corr = sum(correct)
 	print("Total frames: {0}:".format(M))
-	print("Total correct: {0}:".format(corr))
-	print("Total accuracy: {0}:".format(corr/M))
-	print("Total loss: {0}:".format(np.mean(losses)))
+	print("Total correct: {0}".format(corr))
+	print("Total accuracy: {0}".format(corr/M))
+	print("Total loss: {0}".format(np.mean(losses)))
 	
-	
+
+def getVideoEmbeddings(model_name="avenet.pt"):
+	# Get video embeddings on the test set
+	dataset = GetAudioVideoDataset(video_path="Video_test/", audio_path="Audio_test/", validation="test", return_tags=True)
+	dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+	print("Loading data.")
+	for img, aud, res, vidTags, audTags in dataloader:
+		break
+
+	model = getAVENet(True)
+
+	# Load from before
+	if os.path.exists(model_name):
+		model.load_state_dict(torch.load(model_name))
+		print("Loading from previous checkpoint.")
+
+	model.eval()
+	embed = model.get_image_embeddings(Variable(img, volatile=True).cuda())
+	print(embed.data)
+
+	embed = embed.data.cpu().numpy()
+	vidTags = vidTags.numpy()
+
+	data = TSNE(n_iter=5000).fit_transform(embed)
+	X = data[:,0]
+	Y = data[:,1]
+	print(X.shape, Y.shape, vidTags.shape)
+	for i in range(X.shape[0]):
+		plt.scatter(X[i], Y[i])
+
+	for i in range(X.shape[0]):
+		plt.annotate(vidTags[i,0], (X[i], Y[i]))
+
+	print(vidTags)
+	plt.show()
+
+
+
+def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
+	# Get video embeddings on the test set
+	dataset = GetAudioVideoDataset(video_path="Video_test/", audio_path="Audio_test/", validation="test", return_tags=True)
+	dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
+	print("Loading data.")
+	for img, aud, res, vidTags, audTags in dataloader:
+		break
+
+	model = getAVENet(True)
+
+	# Load from before
+	if os.path.exists(model_name):
+		model.load_state_dict(torch.load(model_name))
+		print("Loading from previous checkpoint.")
+
+	imgList, audList, resList, vidTagList, audTagList = [], [], [], [], []
+
+	model.eval()
+	for i, (img, aud, res, vidTag, audTag) in enumerate(dataloader):
+		# Filter the bad ones first
+		res = res.squeeze(1)
+		idx = (res != 2).numpy().astype(bool)
+		if idx.sum() == 0:
+			continue
+
+		# Find the new variables
+		img = torch.Tensor(img.numpy()[idx, :, :, :])
+		aud = torch.Tensor(aud.numpy()[idx, :, :, :])
+		res = torch.LongTensor(res.numpy()[idx])
+		vidTag = vidTag.numpy()[idx]
+		audTag = audTag.numpy()[idx]
+
+		# Print shapes
+		img = Variable(img, volatile=True)
+		aud = Variable(aud, volatile=True)
+		res = Variable(res, volatile=True)
+
+		# print(img.shape, aud.shape, res.shape)
+
+		M = img.shape[0]
+		if use_cuda:
+			img = img.cuda()
+			aud = aud.cuda()
+			res = res.cuda()
+
+		o, _, _ = model(img, aud)
+		_, ind = o.max(1)
+
+		
+		# Grab the correct indices
+		idx = (ind == res).data.cpu().numpy().astype(bool)
+		print(type(idx))
+		imgList.append(img.data.cpu().numpy()[idx, :, :, :])
+		audList.append(aud.data.cpu().numpy()[idx, :, :, :])
+		resList.append(res.data.cpu().numpy()[idx])
+		vidTagList.append(vidTag[idx])
+		audTagList.append(audTag[idx])
+
+		if i == 200:
+			break
+
+	torch.save([imgList, audList, resList, vidTagList, audTagList], "savedEmbeddings.pt")
+
+
+
 
 
 if __name__ == "__main__":
 	cuda = True
-	main(use_cuda=cuda, batch_size=32)
-	# checkValidation(use_cuda=cuda, batch_size=128, \
-			# model_name="models/avenet.pt")
+	generateEmbeddingsForVideoAudio()
+	# main(use_cuda=cuda, batch_size=64)
+	# getVideoEmbeddings()
+	# checkValidation(use_cuda=cuda, validation="test", batch_size=128, model_name="models/avenet.pt")
 	# demo()
 	warnings_file.close()
 
