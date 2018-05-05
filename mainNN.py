@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
+import json
 ## Handle warnings here
 # CITE: https://stackoverflow.com/questions/858916/how-to-redirect-python-warnings-to-a-custom-stream
 warnings_file = open("warning_logs.txt", "w+")
@@ -342,6 +343,15 @@ def getVideoEmbeddings(model_name="avenet.pt"):
 	plt.show()
 
 
+def reverseTransform(img, aud):
+	mean=[0.485, 0.456, 0.406]
+	std=[0.229, 0.224, 0.225]
+
+	for i in range(3):
+		img[:,i,:,:] = img[:,i,:,:]*std[i] + mean[i]
+
+	return img, aud
+
 
 def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 	# Get video embeddings on the test set
@@ -359,6 +369,7 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 		print("Loading from previous checkpoint.")
 
 	imgList, audList, resList, vidTagList, audTagList = [], [], [], [], []
+	imgEmbedList, audEmbedList = [], []
 
 	model.eval()
 	for i, (img, aud, res, vidTag, audTag) in enumerate(dataloader):
@@ -388,34 +399,104 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 			aud = aud.cuda()
 			res = res.cuda()
 
-		o, _, _ = model(img, aud)
+		o, imgEmbed, audEmbed = model(img, aud)
 		_, ind = o.max(1)
 
 		
 		# Grab the correct indices
 		idx = (ind == res).data.cpu().numpy().astype(bool)
-		print(type(idx))
-		imgList.append(img.data.cpu().numpy()[idx, :, :, :])
-		audList.append(aud.data.cpu().numpy()[idx, :, :, :])
-		resList.append(res.data.cpu().numpy()[idx])
+		print(i)
+
+		img, aud = reverseTransform(img, aud)
+		# plt.imshow(img[0].data.cpu().numpy().transpose(1,2,0))
+		# plt.draw()
+		# plt.pause(0.005)
+
+		imgList.append(img.data.cpu().numpy()[idx, :])
+		audList.append(aud.data.cpu().numpy()[idx, :])
+		imgEmbedList.append(imgEmbed.data.cpu().numpy()[idx, :])
+		audEmbedList.append(audEmbed.data.cpu().numpy()[idx, :])
 		vidTagList.append(vidTag[idx])
 		audTagList.append(audTag[idx])
 
-		if i == 200:
+		if i == 30:
 			break
 
-	torch.save([imgList, audList, resList, vidTagList, audTagList], "savedEmbeddings.pt")
+	torch.save([imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList], "savedEmbeddings.pt")
 
 
+def bgr2rgb(img):
+	res = img+0.0
+	if len(res.shape) == 4:
+		res[:,0,:,:] = img[:,2,:,:]
+		res[:,2,:,:] = img[:,0,:,:]
+	else:
+		res[0,:,:] = img[2,:,:]
+		res[2,:,:] = img[0,:,:]
+	return res
+
+
+def getNumToTagsMap():
+	with open("tags.cls") as fi:
+		taglist = map(lambda x: x[:-1], fi.readlines())
+
+	with open("mappings.json") as fi:
+		mapping = json.loads(fi.read())
+
+	finalTag = map(lambda x: mapping[x], taglist)
+	return finalTag
+
+
+
+def imageToImageQueries(topk=5):
+
+	finalTag = getNumToTagsMap()
+	print(finalTag)
+
+	t = torch.load("savedEmbeddings.pt")
+	for i in range(len(t)):
+		t[i] = np.concatenate(t[i])
+	imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList = t
+	print("Loaded embeddings.")
+
+	imgList = bgr2rgb(imgList)
+	flag = True
+
+	for i in range(imgEmbedList.shape[0]):
+		embed = imgEmbedList[i]
+		dist  = ((embed - imgEmbedList)**2).sum(1)
+		idx   = dist.argsort()[:topk]
+		print(vidTagList[idx])
+		plt.clf()
+		num_fig = idx.shape[0]
+		ax = plt.subplot(1, 3, 1)
+		ax.set_title(finalTag[vidTagList[idx[0], 0]])
+		plt.axis("off")
+		plt.imshow(imgList[idx[0]].transpose(1,2,0))
+		for j in range(1, num_fig):
+			ax = plt.subplot(2, 3, j+1 + int(j/3))
+			ax.set_title(finalTag[vidTagList[idx[j], 0]])
+			plt.imshow(imgList[idx[j]].transpose(1,2,0))
+			plt.axis("off")
+
+		# plt.tight_layout()
+		plt.draw()
+		plt.pause(0.001)
+		if flag:
+			raw_input()
+			flag = False
+		# res = raw_input("Do you want to save?")
+		# if res == "y":
+		plt.savefig("results/embed_im_im_{0}.png".format(i))
 
 
 
 if __name__ == "__main__":
 	cuda = True
-	generateEmbeddingsForVideoAudio()
+	imageToImageQueries()
+	# generateEmbeddingsForVideoAudio()
 	# main(use_cuda=cuda, batch_size=64)
 	# getVideoEmbeddings()
 	# checkValidation(use_cuda=cuda, validation="test", batch_size=128, model_name="models/avenet.pt")
 	# demo()
 	warnings_file.close()
-
