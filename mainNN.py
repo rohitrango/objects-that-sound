@@ -355,11 +355,12 @@ def reverseTransform(img, aud):
 
 def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 	# Get video embeddings on the test set
-	dataset = GetAudioVideoDataset(video_path="Video_test/", audio_path="Audio_test/", validation="test", return_tags=True)
+	dataset = GetAudioVideoDataset(video_path="Video_test/", audio_path="Audio_test/", validation="test",\
+	 return_tags=True, return_audio=True)
 	dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 	print("Loading data.")
-	for img, aud, res, vidTags, audTags in dataloader:
-		break
+	# for img, aud, res, vidTags, audTags, audioSample in dataloader:
+	# 	break
 
 	model = getAVENet(True)
 
@@ -370,9 +371,10 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 
 	imgList, audList, resList, vidTagList, audTagList = [], [], [], [], []
 	imgEmbedList, audEmbedList = [], []
+	audioSampleList = []
 
 	model.eval()
-	for i, (img, aud, res, vidTag, audTag) in enumerate(dataloader):
+	for i, (img, aud, res, vidTag, audTag, audSamples) in enumerate(dataloader):
 		# Filter the bad ones first
 		res = res.squeeze(1)
 		idx = (res != 2).numpy().astype(bool)
@@ -385,13 +387,11 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 		res = torch.LongTensor(res.numpy()[idx])
 		vidTag = vidTag.numpy()[idx]
 		audTag = audTag.numpy()[idx]
+		audSamples = audSamples.numpy()[idx]
 
-		# Print shapes
 		img = Variable(img, volatile=True)
 		aud = Variable(aud, volatile=True)
 		res = Variable(res, volatile=True)
-
-		# print(img.shape, aud.shape, res.shape)
 
 		M = img.shape[0]
 		if use_cuda:
@@ -404,7 +404,7 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 
 		
 		# Grab the correct indices
-		idx = (ind == res).data.cpu().numpy().astype(bool)
+		idx = ((ind == res) * (res == 0)).data.cpu().numpy().astype(bool)
 		print(i)
 
 		img, aud = reverseTransform(img, aud)
@@ -418,11 +418,12 @@ def generateEmbeddingsForVideoAudio(model_name="avenet.pt", use_cuda=True):
 		audEmbedList.append(audEmbed.data.cpu().numpy()[idx, :])
 		vidTagList.append(vidTag[idx])
 		audTagList.append(audTag[idx])
+		audioSampleList.append(audSamples[idx])
 
-		if i == 30:
+		if i == 35:
 			break
 
-	torch.save([imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList], "savedEmbeddings.pt")
+	torch.save([imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList, audioSampleList], "savedEmbeddings.pt")
 
 
 def bgr2rgb(img):
@@ -456,7 +457,15 @@ def imageToImageQueries(topk=5):
 	t = torch.load("savedEmbeddings.pt")
 	for i in range(len(t)):
 		t[i] = np.concatenate(t[i])
-	imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList = t
+
+	# Generalize here
+	if len(t) == 6:
+		imgList, audList, imgEmbedList, audEmbedList, vidTagList, audTagList = t
+	else:
+		imgList, audList, imgEmbedList, audEmbedList, vidTagList\
+			, audTagList, audioSampleList = t
+
+
 	print("Loaded embeddings.")
 
 	imgList = bgr2rgb(imgList)
@@ -490,10 +499,90 @@ def imageToImageQueries(topk=5):
 		plt.savefig("results/embed_im_im_{0}.png".format(i))
 
 
+def crossModalQueries(topk=5, mode1="au", mode2="im"):
+	finalTag = getNumToTagsMap()
+	print(finalTag)
+
+
+	for r, di, files in os.walk("Audio_test/"):
+		audioFiles = sorted(files)
+
+
+	t = torch.load("savedEmbeddings.pt")
+	for i in range(len(t)):
+		t[i] = np.concatenate(t[i])
+	imgList, audList, imgEmbedList, audEmbedList, vidTagList\
+		, audTagList, audioSampleList = t
+
+	print("Loaded embeddings.")
+
+	imgList = bgr2rgb(imgList)
+	flag = True
+	print(imgList.shape[0])
+
+	# Open a file and store your queries here
+	res = open("results/results_{0}_{1}.txt".format(mode1, mode2), "w+")
+
+	assert(mode1 != mode2)
+	try:
+		for i in range(imgEmbedList.shape[0]):
+			if mode1 == "im":
+				embed = imgEmbedList[i]
+			else:
+				embed = audEmbedList[i]
+
+			# Compute distance
+			if mode2 == "im":
+				dist = ((embed - imgEmbedList)**2).sum(1)
+			else:
+				dist = ((embed - audEmbedList)**2).sum(1)
+
+			# Sort arguments
+			idx = dist.argsort()[:topk]
+			print(vidTagList[idx])
+			plt.clf()
+			num_fig = idx.shape[0]
+
+			# Actual query
+			ax = plt.subplot(2, 3, 1)
+			ax.set_title("Query: " + finalTag[vidTagList[i, 0]])
+			plt.axis("off")
+			plt.imshow(imgList[i].transpose(1,2,0))
+
+			# Top 5 matches
+			for j in range(num_fig):
+				ax = plt.subplot(2, 3, j+2)
+				ax.set_title(finalTag[vidTagList[idx[j], 0]])
+				plt.imshow(imgList[idx[j]].transpose(1,2,0))
+				plt.axis("off")
+
+			# plt.tight_layout()
+			plt.draw()
+			plt.pause(0.001)
+			if flag:
+				raw_input()
+				flag = False
+			# res = raw_input("Do you want to save?")
+			# if res == "y":
+
+			if mode1 == "au":
+				res.write(audioFiles[audioSampleList[i, 0]] + "\n")
+			else:
+				tmpFiles = map(lambda x: audioFiles[audioSampleList[x, 0]], idx)
+				line = ", ".join(tmpFiles)
+				res.write(line + "\n")
+
+			plt.savefig("results/embed_{0}_{1}_{2}.png".format(mode1, mode2, i))
+	except:
+		res.close()
+
+	res.close()
+
 
 if __name__ == "__main__":
 	cuda = True
-	imageToImageQueries()
+	# imageToImageQueries()
+	crossModalQueries()
 	# generateEmbeddingsForVideoAudio()
 	# main(use_cuda=cuda, batch_size=64)
 	# getVideoEmbeddings()

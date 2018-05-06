@@ -12,3 +12,4 @@ losses
 *.pt
 *.jpg
 *.png
+experimental_results/

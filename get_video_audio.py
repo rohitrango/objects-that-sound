@@ -39,15 +39,6 @@ def checkBalanceInFiles(path="Video/"):
 			video_id = words[0]
 			fileToClassMap[video_id] = words[3]
 
-
-	# with open('balanced_train_segments_filtered.csv') as fi:
-	# 	lines = fi.readlines()
-	# 	for lin in lines:
-	# 		words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
-	# 		words = words[0:3] + [words[3:]]
-	# 		video_id = words[0]
-	# 		fileToClassMap[video_id] = words[3]
-
 	# Get all downloaded files
 	for root, dirs, files in os.walk(path):
 		break
@@ -107,6 +98,7 @@ def filtValidation():
 
 def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.csv'):
 	with open(filename, 'w') as fi:
+		lines = fi.readlines()
 		for lin in lines:
 			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
 			words = words[0:3] + [words[3:]]

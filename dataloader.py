@@ -92,7 +92,9 @@ def getValMappings(path1="videos.csv", check_file="videoToGenreVal.json", videoF
 ## Define custom dataset here
 class GetAudioVideoDataset(Dataset):
 
-	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None, validation=None, return_tags=False):
+	def __init__(self, video_path="Video/", audio_path="Audio/", transforms=None, \
+			validation=None, return_tags=False, return_audio=False):
+
 		self.video_path = video_path
 		self.audio_path = audio_path
 		self.transforms = transforms
@@ -109,6 +111,7 @@ class GetAudioVideoDataset(Dataset):
 		self.genreToVid = g2v
 		self.genreClasses = list(g2v.keys())
 		self.sampleRate = 48000
+		self.return_audio = return_audio
 
 		# Retrieve list of audio and video files
 		for r, dirs, files in os.walk(self.video_path):
@@ -158,7 +161,10 @@ class GetAudioVideoDataset(Dataset):
 		if idx >= self.length:
 			print("ERROR")
 			if self.return_tags:
-				return (None, None, None, None, None)
+				if self.return_audio:
+					return (None, None, None, None, None, None)
+				else:
+					return (None, None, None, None, None)
 			else:
 				return (None, None, None)
 
@@ -179,6 +185,10 @@ class GetAudioVideoDataset(Dataset):
 			vidIndex = tags[vidClasses[0]]
 			audIndex = vidIndex
 
+			# Store the position of audio
+			audPos = self.audio_files.index(self.audio_files[video_idx])
+
+
 		# Negative examples
 		else:
 			video_idx = int((idx-self.length/2)/self.fpv)
@@ -192,6 +202,10 @@ class GetAudioVideoDataset(Dataset):
 			restClasses = filter(lambda x: x not in vidClasses, self.genreClasses)
 			randomClass = np.random.choice(restClasses)
 			randomVideoID = np.random.choice(self.genreToVid[randomClass])
+			
+			# Store the position of audio
+			audPos = self.audio_files.index("audio_" + randomVideoID + ".wav")
+
 			# Read the audio now
 			rate, samples = wav.read(os.path.join(self.audio_path, "audio_" + randomVideoID + ".wav"))
 			time = (500 + (np.random.randint(self.fpv)*1000/30))/1000.0
@@ -215,8 +229,13 @@ class GetAudioVideoDataset(Dataset):
 		  	# Some problem with image, return some random stuff
 		  	if image is None:
 		  		if self.return_tags:
-		  			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
-		  					, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+		  			if self.return_audio:
+		  				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+		  						, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex]), torch.LongTensor([-1])
+		  			else:
+		  				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+		  						, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+
 		  		else:
 		  			return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
@@ -238,8 +257,13 @@ class GetAudioVideoDataset(Dataset):
 		# Remove bad examples
 		if spectrogram.shape != (257, 200):
 			if self.return_tags:
-				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
-						, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+				if self.return_audio:
+					return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+							, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex]), torch.LongTensor([audPos])
+				else:
+					return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2]) \
+							, torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+
 			else:
 				return torch.Tensor(np.random.rand(3, 224, 224)), torch.Tensor(np.random.rand(1, 257, 200)), torch.LongTensor([2])
 
@@ -253,7 +277,11 @@ class GetAudioVideoDataset(Dataset):
 		audio = self._aud_transform(audio)
 		# print(image.shape, audio.shape, result)
 		if self.return_tags:
-			return image, audio, torch.LongTensor(result), torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+			if self.return_audio:
+				return image, audio, torch.LongTensor(result), torch.LongTensor([vidIndex]), torch.LongTensor([audIndex]), torch.LongTensor([audPos])
+			else:
+				return image, audio, torch.LongTensor(result), torch.LongTensor([vidIndex]), torch.LongTensor([audIndex])
+
 		else:
 			return image, audio, torch.LongTensor(result)
 
