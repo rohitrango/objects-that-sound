@@ -26,12 +26,12 @@ vid2class = dict()
 
 def checkBalanceInFiles(path="Video/"):
 	# Load all classes
-	with open('tags.cls') as fi:
+	with open('metadata/tags.cls') as fi:
 		classes = dict(map(lambda x: (x[:-1], 0), fi.readlines()))
 	
 	# Load the lines from the csv
 	fileToClassMap = dict()
-	with open('videos.csv') as fi:
+	with open('metadata/videos.csv') as fi:
 		lines = fi.readlines()
 		for lin in lines:
 			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
@@ -54,12 +54,12 @@ def checkBalanceInFiles(path="Video/"):
 def filtValidation():
 
 	# Load all classes
-	with open('tags.cls') as fi:
+	with open('metadata/tags.cls') as fi:
 		classes = dict(map(lambda x: (x[:-1], 0), fi.readlines()))
 
 	checkVideo = []
 	fileToClassMap = dict()		
-	with open('balanced_train_segments_filtered.csv') as fi:
+	with open('csv/balanced_train_segments_filtered.csv') as fi:
 		lines = fi.readlines()
 		for lin in lines:
 			words = [word.replace("\n","").replace('"', '') for word in lin.replace(" ", "").split(",")]
@@ -85,18 +85,16 @@ def filtValidation():
 		for xcls in fileToClassMap[video_id]:
 			classes[xcls] += 1
 
-	#print(checkVideo)
-	#print(json.dumps(classes, indent=4))
 	
 	# Open a new file and dump it there
-	with open("balanced_validation.csv", "w+") as fi:
+	with open("csv/balanced_validation.csv", "w+") as fi:
 		fi.writelines(map(lambda x: x[1], checkVideo))
 
 	print("Done")
 
 
 
-def create_unbalanced_files(lines, filename='unbalanced_train_segments_filtered.csv'):
+def create_unbalanced_files(lines, filename='csv/unbalanced_train_segments_filtered.csv'):
 	with open(filename, 'w') as fi:
 		lines = fi.readlines()
 		for lin in lines:
@@ -165,10 +163,10 @@ def downloadAllVideos(validation=False):
 	# Lines for every video
 	print("Validation : {0}".format(validation))
 	if validation:
-		filename = "balanced_validation.csv"
+		filename = "csv/balanced_validation.csv"
 		isValString = "_val"
 	else:
-		filename = "unbalanced_train_segments_filtered.csv"
+		filename = "csv/unbalanced_train_segments_filtered.csv"
 		isValString = ""
 
 	with open(filename) as f:
@@ -176,7 +174,7 @@ def downloadAllVideos(validation=False):
 
 	print("Downloading {0} videos.".format(len(lines)))
 	# Load all tags for checking download
-	with open('tags.cls') as file:
+	with open('metadata/tags.cls') as file:
 		tags = map(lambda x: x[:-1], file.readlines())
 
 	print(tags)

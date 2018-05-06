@@ -11,8 +11,6 @@ from numpy.lib import stride_tricks
 import matplotlib.pyplot as plt
 from scipy import signal
 
-
-
 """ short time fourier transform of audio signal """
 def stft(sig, frameSize, overlapFac=0.5, window=np.hanning):
 	win = window(frameSize)

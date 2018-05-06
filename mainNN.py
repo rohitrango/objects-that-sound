@@ -1,6 +1,7 @@
 from image_convnet import *
 from audio_convnet import *
-from dataloader import *
+from utils.dataloader import *
+
 from torch.optim import *
 from torchvision.transforms import *
 import warnings
@@ -438,10 +439,10 @@ def bgr2rgb(img):
 
 
 def getNumToTagsMap():
-	with open("tags.cls") as fi:
+	with open("metadata/tags.cls") as fi:
 		taglist = map(lambda x: x[:-1], fi.readlines())
 
-	with open("mappings.json") as fi:
+	with open("metadata/mappings.json") as fi:
 		mapping = json.loads(fi.read())
 
 	finalTag = map(lambda x: mapping[x], taglist)

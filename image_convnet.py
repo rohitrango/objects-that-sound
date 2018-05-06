@@ -52,6 +52,7 @@ class ImageConvNet(nn.Module):
 		c = F.relu(self.bat41(self.cnn8(c)))
 		return c
 
+	# Dummy function, just to check if feedforward is working or not
 	def loss(self, output):
 		return (output.mean())**2
 
@@ -62,6 +63,7 @@ if __name__ == "__main__":
 	image = Variable(torch.rand(2, 3, 224, 224)).cuda()
 	print("Image loaded.")
 
+	# Run a feedforward and check shape
 	c = model(image)
 	print(image.shape)
 	print(c.shape)

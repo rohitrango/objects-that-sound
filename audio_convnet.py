@@ -37,8 +37,6 @@ class AudioConvNet(nn.Module):
 		self.bat40 = nn.BatchNorm2d(512)
 		self.bat41 = nn.BatchNorm2d(512)
 
-
-
 	def forward(self, inp):
 		c = F.relu(self.bat10(self.cnn1(inp)))
 		c = F.relu(self.bat11(self.cnn2(c)))
@@ -57,15 +55,18 @@ class AudioConvNet(nn.Module):
 		
 		return c
 
+	# Dummy function, just to test if feedforward is working or not
 	def loss(self, output):
 		return (output.mean())**2
 
 if __name__ == "__main__":
+
 	model = AudioConvNet().cuda()
 	print("Model loaded.")
 	image = Variable(torch.rand(2, 1, 257, 200)).cuda()
 	print("Image loaded.")
 
+	# Run some sample epochs to see if everything's working
 	optim = SGD(model.parameters(), lr=1e-4)
 	for i in range(100):
 		optim.zero_grad()

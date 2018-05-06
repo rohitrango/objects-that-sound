@@ -6,8 +6,6 @@ import sys
 
 # bash script to copy from losses.txt to losses
 # cat losses.txt  | cut -d " " -f 10
-
-
 try:
 	filename = sys.argv[1]
 except:

@@ -11,14 +11,14 @@ from torchvision import transforms, utils
 from torchvision.transforms import Compose, Normalize, ToTensor
 
 # Get index for each genre
-with open("tags.cls") as fi:
+with open("metadata/tags.cls") as fi:
 	tags = map(lambda x: x[:-1], fi.readlines())
 	tags = dict((x, i) for i, x in enumerate(tags))
 
 
 # Function for getting class to video map
 # And video to class map
-def getMappings(path1="videos.csv", check_file="videoToGenre.json", videoFolder="Video"):
+def getMappings(path1="metadata/videos.csv", check_file="metadata/videoToGenre.json", videoFolder="Video"):
 	# Read from files and generate mappings
 	if os.path.exists(check_file):
 		with open(check_file) as fi:
@@ -53,7 +53,7 @@ def getMappings(path1="videos.csv", check_file="videoToGenre.json", videoFolder=
 	return vidToGenre, genreToVid
 
 
-def getValMappings(path1="videos.csv", check_file="videoToGenreVal.json", videoFolder="Video_val"):
+def getValMappings(path1="metadata/videos.csv", check_file="metadata/videoToGenreVal.json", videoFolder="Video_val"):
 	# Read from files and generate mappings
 	
 	if os.path.exists(check_file):
@@ -102,7 +102,7 @@ class GetAudioVideoDataset(Dataset):
 		if validation == True or validation == "validation":
 			v2g, g2v = getValMappings()
 		elif validation == "test":
-			v2g, g2v = getValMappings("videos.csv", "videosToGenreTest.json", "Video_test")
+			v2g, g2v = getValMappings("metadata/videos.csv", "metadata/videosToGenreTest.json", "Video_test")
 		else:
 			v2g, g2v = getMappings()
 
